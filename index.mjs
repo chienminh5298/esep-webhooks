@@ -1,29 +1,19 @@
-const https = require('https');
+import https from "https";
 
-exports.handler = async (event) => {
-    const body = JSON.parse(event.body);
-    const githubEvent = event.headers['X-GitHub-Event'];
-    
-    if (githubEvent === 'issues' && body.action === 'opened') {
-        const issueUrl = body.issue.html_url;
-        const issueTitle = body.issue.title;
-        
-        console.log(`New issue created: ${issueTitle}`);
-        console.log(`Issue URL: ${issueUrl}`);
-        
-        const slackMessage = {
-            text: `A new GitHub issue has been created:\n*${issueTitle}*\n${issueUrl}`
-        };
+export const handler = async (event) => {
+    const issueUrl = event.issue.html_url;
+    const issueTitle = event.issue.title;
 
-        const slackUrl = process.env.SLACK_URL;
-        await sendSlackNotification(slackUrl, slackMessage);
-    } else {
-        console.log(`Unhandled GitHub event: ${githubEvent}`);
-    }
+    const slackMessage = {
+        text: `Issue created: ${issueUrl}`
+    };
+
+    const slackUrl = process.env.SLACK_URL;
+    await sendSlackNotification(slackUrl, slackMessage);
 
     return {
         statusCode: 200,
-        body: JSON.stringify({ message: 'Webhook received and processed.' }),
+        body: JSON.stringify({ message: slackUrl }),
     };
 };
 
@@ -38,23 +28,23 @@ const sendSlackNotification = (slackUrl, message) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Length': data.length,
-            },
+                'Content-Length': data.length
+            }
         };
 
         const req = https.request(options, (res) => {
-            res.on('data', (d) => {
-                process.stdout.write(d);
+            let responseData = '';
+            res.on('data', (chunk) => {
+                responseData += chunk;
             });
 
             res.on('end', () => {
-                resolve();
+                resolve(responseData);
             });
         });
 
-        req.on('error', (e) => {
-            console.error(`Problem with request: ${e.message}`);
-            reject(e);
+        req.on('error', (error) => {
+            reject(error);
         });
 
         req.write(data);
